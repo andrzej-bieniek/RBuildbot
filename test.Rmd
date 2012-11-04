@@ -1,0 +1,196 @@
+Buildbot data in R
+========================================================
+(`r format(Sys.time())`)
+
+
+Introruction
+------------
+Buildbot peformance analisys based on last builds.
+
+
+```{r echo=FALSE, message=FALSE}
+library(lattice)
+source('rbuildbot.R')
+```
+
+
+Buildbot url:
+```{r echo=FALSE}
+url <- "http://buildbot.buildbot.net"
+url
+bb_setUrl(url)
+```
+
+Builders included in the report:
+```{r echo=FALSE}
+builders <- bb_getBuilders()
+#builders <- c(builders[1:3], builders[5:8])  #reduce number of builders
+builders <- builders[1:2]
+builders
+```
+
+
+```{r echo=FALSE}
+b <- bb_getBuilds(builder=builders, buildNr=-2:-15)
+builds = b[[1]]
+builds_ok <- subset(builds, result == "build successful")
+builds_failed <- subset(builds, result != "build successful")
+changes = b[[2]]
+
+m <- merge(x=builds, y=changes, by.x=c('number', 'builderName'), by.y=c('build_number', 'builder_name'))
+m_ok <- subset(m, result == "build successful")
+m_failed <- subset(m, result != "build successful")
+```
+
+
+Changesets waiting + build time
+===============================
+
+Time between changeset was pushed to buildbot and build with that changeset included finishes.
+
+```{r echo=FALSE}
+
+plot_waiting_build_time <- function(m, title_prefix)
+{
+  hist((m$time_end - m$change_time)/60, main=paste(title_prefix, "Change result + build time"), xlab="wait time [min]")
+  boxplot(
+    (m$time_end - m$change_time)/60 ~ m$builderName,
+    data=m,
+    las=2,
+    main=paste(title_prefix, "Changeset result + build time")
+  )
+}
+
+plot_waiting_build_time2 <- function(m, title_prefix)
+{
+  histogram( ~ (m$time_end - m$change_time)/60 | builds$builderName, data=m, main=paste(title_prefix, "Changeset result + build time"), xlab="Build time [min]" )
+}
+```
+
+
+All builds
+----------
+
+```{r echo=FALSE}
+plot_waiting_build_time(m, "All")
+plot_waiting_build_time2(m, "All")
+```
+
+Successful builds
+-----------------
+```{r echo=FALSE}
+plot_waiting_build_time(m_ok, "Successful")
+plot_waiting_build_time2(m_ok, "Successful")
+```
+
+
+Failed builds
+-------------
+```{r echo=FALSE}
+plot_waiting_build_time(m_failed, "Failed")
+plot_waiting_build_time2(m_failed, "Failed")
+```
+
+
+Changesets waiting time
+=======================
+Time between changeset was pushed to buildbot and starting the build with that changeset included.
+
+```{r echo=FALSE}
+plot_waiting_time <- function(m, title_prefix)
+{
+  hist((m$time_start - m$change_time)/60, main=paste(title_prefix, "Changeset waiting time"), xlab="wait time [min]")
+  
+  boxplot(
+    (m$time_start - m$change_time)/60 ~ m$builderName,
+    data=m,
+    las=2,
+    main=paste(title_prefix, "Changeset waiting time")
+  )
+}
+
+plot_waiting_time2 <- function(m, title_prefix)
+{
+  histogram( ~ (m$time_start - m$change_time)/60 | builds$builderName, data=m, main=paste(title_prefix, "Changeset waiting time"), xlab="Build time [min]" )
+}
+
+```
+
+All builds
+----------
+```{r echo=FALSE}
+plot_waiting_time(m, "All")
+plot_waiting_time2(m, "All")
+```
+
+Successful builds
+-----------------
+```{r echo=FALSE}
+plot_waiting_time(m_ok, "Successful")
+plot_waiting_time2(m_ok, "Successful")
+```
+
+Failed builds
+-------------
+```{r echo=FALSE}
+plot_waiting_time(m_failed, "Failed")
+plot_waiting_time2(m_failed, "Failed")
+```
+
+Build time
+==========
+
+```{r echo=FALSE}
+plot_builds_time <- function(builds, title_prefix)
+{
+  hist( (builds$time_end - builds$time_start)/60, main=paste(title_prefix, "Projects build time"), xlab="Build time [min]" )
+#  grid(nx=NULL, ny=NULL)
+  boxplot( (builds$time_end - builds$time_start)/60 ~ builds$builderName, data=builds, main=paste(title_prefix, "Projects build time"), ylab="Build time [min]" )
+#  grid(nx=NULL, ny=NULL)
+  histogram( ~ (builds$time_end - builds$time_start)/60 | builds$builderName, data=builds, main=paste(title_prefix, "Projects build time"), xlab="Build time [min]" )
+#  grid(nx=NULL, ny=NULL)
+}
+
+plot_builds_time2 <- function(builds, title_prefix)
+{
+  for (builder in builders)
+  {
+    s <- subset(builds, builds$builderName == builder)  #data for specific builder
+    boxplot(
+      (s$time_end - s$time_start)/60 ~ s$slave,
+      data=s,
+      las=2,
+      main=paste(title_prefix, builder, "build time"),
+      ylab="build time [min]"
+    )
+#    grid(nx=NULL, ny=NULL)
+    histogram(
+      ~ (s$time_end - s$time_start)/60 | s$slave * s$builderName, data=s,
+      main=paste(title_prefix, builder, "build time"),
+      ylab="Build time [min]")
+#    grid(nx=NULL, ny=NULL)
+  }
+}
+```
+
+All builds
+----------
+```{r echo=FALSE}
+plot_builds_time(builds, "All")
+plot_builds_time2(builds, "All")
+```
+
+Successful builds
+-----------------
+```{r echo=FALSE}
+plot_builds_time(builds_ok, "Successful")
+plot_builds_time2(builds_ok, "Successful")
+```
+
+Failed builds
+-------------
+```{r echo=FALSE}
+plot_builds_time(builds_failed, "Failed")
+plot_builds_time2(builds_failed, "Failed")
+```
+
